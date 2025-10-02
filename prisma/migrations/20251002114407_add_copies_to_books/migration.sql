@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Book" ADD COLUMN     "copies" INTEGER NOT NULL DEFAULT 1;
