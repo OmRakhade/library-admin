@@ -30,7 +30,7 @@ export default function LoginPage() {
       {/* Background illustration */}
       <div className="relative z-10 p-10 bg-white/80 backdrop-blur-md rounded-3xl shadow-2xl flex flex-col items-center space-y-6 max-w-md w-full">
         <h1 className="text-4xl font-extrabold text-gray-800 text-center">
-          Library Admin Login
+          Login
         </h1>
         <p className="text-gray-600 text-center">
           Access your dashboard securely with your Google account

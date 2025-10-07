@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Loader from "@/components/loader";
@@ -19,6 +20,7 @@ interface Developer {
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const [books, setBooks] = useState<Book[]>([]);
 
   const developers: Developer[] = [
@@ -30,7 +32,7 @@ export default function DashboardPage() {
     { name: "Fiona Green", role: "Project Manager" },
   ];
 
-  // ✅ Fetch books only when logged in as admin
+  // Fetch books only when logged in as admin
   useEffect(() => {
     if (session?.user.role !== "admin") return;
 
@@ -47,21 +49,26 @@ export default function DashboardPage() {
     fetchBooks();
   }, [session]);
 
-  // ✅ Show loader while session is loading
+  // Show loader while session is loading
   if (status === "loading") return <Loader />;
 
-  // ✅ If not admin (or not logged in), block UI (server already redirects)
+  // If not admin (or not logged in), block UI with "Access Denied"
   if (!session || session.user.role !== "admin") {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-gray-600">Access Denied</p>
+      <div className="flex flex-col h-screen items-center justify-center gap-4">
+        <p className="text-gray-600 text-lg">Admin Dashbaord, Only Admin can access</p>
+        <button
+          onClick={() => router.push("/login")}
+          className="px-6 py-2 bg-blue-600 text-white rounded-full shadow hover:bg-blue-700 transition transform hover:scale-105"
+        >
+          Go to Login
+        </button>
       </div>
     );
   }
 
   const handleLogout = async () => signOut({ callbackUrl: "/login" });
 
-  // ✅ Dashboard UI
   return (
     <div className="min-h-screen bg-gradient-to-tr from-blue-50 via-purple-50 to-pink-50 p-6">
       {/* Header */}
