@@ -4,6 +4,12 @@ import { authOptions } from "./api/auth/[...nextauth]/route";
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
+
   if (!session) redirect("/login");
-  else redirect("/dashboard");
+
+  // Admins go to /dashboard
+  if (session.user.role === "admin") redirect("/dashboard");
+
+  // Normal users go to /user/dashboard
+  redirect("/user/dashboard");
 }

@@ -21,7 +21,8 @@ export default function BooksPage() {
   const router = useRouter();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<number | null>(null); // track deleting book id
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [form, setForm] = useState({
     title: "",
@@ -33,39 +34,32 @@ export default function BooksPage() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // fetchBooks is memoized so we can reuse it in multiple places
+  // Fetch books
   const fetchBooks = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/books");
-      if (!res.ok) {
-        console.error("Failed to fetch books:", res.status);
-        return;
-      }
+      if (!res.ok) throw new Error("Failed to fetch books");
       const data = await res.json();
       setBooks(data);
     } catch (err) {
-      console.error("Error fetching books:", err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Fetch books only if admin session present
   useEffect(() => {
     if (!session) return;
     if ((session as any).user?.role !== "admin") return;
     fetchBooks();
   }, [session, fetchBooks]);
 
-  // Redirect if unauthenticated
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    }
+    if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
 
-  // Handle form submission
+  // Add book
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title || !form.author || !form.category) return;
@@ -77,42 +71,25 @@ export default function BooksPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
         alert(err.error || "Failed to add book");
         return;
       }
-
-      // If successful, either read returned book or refetch to ensure db consistency
       const newBook = await res.json();
-      // Option 1: prepend returned book (fast)
       setBooks(prev => [newBook, ...prev]);
-      // Optionally refetch to ensure server state is authoritative:
-      // await fetchBooks();
-
-      setForm({
-        title: "",
-        author: "",
-        category: "",
-        publication: "",
-        publicationdate: "",
-        copies: 1,
-      });
+      setForm({ title: "", author: "", category: "", publication: "", publicationdate: "", copies: 1 });
     } catch (error) {
-      console.error("Error adding book:", error);
+      console.error(error);
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Inside BooksPage component
-
-  // Handle book deletion
+  // Delete book
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this book?")) return;
-
-    setDeletingId(id); // mark as deleting
+    setDeletingId(id);
     try {
       const res = await fetch(`/api/books/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -120,30 +97,35 @@ export default function BooksPage() {
         alert(payload.error || "Failed to delete book");
         return;
       }
-
       setBooks(prev => prev.filter(b => b.id !== id));
     } catch (error) {
-      console.error("Error deleting book:", error);
-      alert("Failed to delete the book. Check console.");
+      console.error(error);
     } finally {
-      setDeletingId(null); // reset state
+      setDeletingId(null);
     }
   };
 
   if (status === "loading") return <p>Loading...</p>;
   if (session && (session as any).user?.role !== "admin") return <p>Access denied</p>;
 
+  // Filter books
+  const filteredBooks = books.filter((book) =>
+    book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    book.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    book.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-200 to-gray-100 p-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-10">
+      {/* Header with back button left and title right */}
+      <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => router.back()}
           className="flex items-center gap-2 px-4 py-2 bg-white/70 backdrop-blur-lg shadow-lg rounded-xl text-gray-800 hover:bg-white transition-all"
         >
           ← Back
         </button>
-        <h1 className="text-4xl font-extrabold text-gray-900 drop-shadow-sm">
+        <h1 className="text-4xl font-extrabold text-gray-900 drop-shadow-sm ml-auto">
           📚 Books Management
         </h1>
       </div>
@@ -152,7 +134,6 @@ export default function BooksPage() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-xl border border-gray-200 mb-10">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">➕ Add New Book</h2>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             <input type="text" placeholder="Title" value={form.title}
@@ -185,13 +166,25 @@ export default function BooksPage() {
         </form>
       </motion.div>
 
+
+      {/* Search */}
+      <div className="mb-6">
+        <input
+          type="text"
+          placeholder="Search by title, author, or category..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full max-w-md px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      
       {/* Book List */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
         className="bg-white/90 backdrop-blur-xl p-8 rounded-3xl shadow-xl border border-gray-200">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">📖 Book List</h2>
-
         {loading ? <p className="text-gray-600">Loading books...</p> :
-          books.length === 0 ? <p className="text-gray-500 italic">No books available yet.</p> : (
+          filteredBooks.length === 0 ? <p className="text-gray-500 italic">No books match your search.</p> : (
             <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-md">
               <table className="w-full text-left text-gray-700">
                 <thead>
@@ -207,7 +200,7 @@ export default function BooksPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {books.map((book, index) => (
+                  {filteredBooks.map((book, index) => (
                     <tr key={`${book.id}-${index}`} className={`transition-colors ${index % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"}`}>
                       <td className="px-4 py-3">{book.title}</td>
                       <td className="px-4 py-3">{book.author}</td>
@@ -220,15 +213,11 @@ export default function BooksPage() {
                         <button
                           onClick={() => handleDelete(book.id)}
                           disabled={deletingId === book.id}
-                          className={`px-3 py-1 text-sm rounded-lg transition ${deletingId === book.id
-                              ? "bg-gray-400 cursor-not-allowed text-white"
-                              : "bg-red-500 hover:bg-red-600 text-white"
-                            }`}
+                          className={`px-3 py-1 text-sm rounded-lg transition ${deletingId === book.id ? "bg-gray-400 cursor-not-allowed text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}
                         >
                           {deletingId === book.id ? "Deleting..." : "🗑️ Delete"}
                         </button>
                       </td>
-
                     </tr>
                   ))}
                 </tbody>
